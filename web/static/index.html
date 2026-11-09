@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nine Dash Line Detection | Phát hiện Đường Lưỡi Bò</title>
+    <style>
+        /* ============================================================
+           CSS Custom Properties - Bảng màu chính
+           ============================================================ */
+        :root {
+            --primary: #0f172a;
+            --primary-light: #1e293b;
+            --primary-lighter: #334155;
+            --surface: #1a2332;
+            --surface-hover: #243044;
+            --accent: #0d9488;
+            --accent-light: #14b8a6;
+            --accent-glow: rgba(13, 148, 136, 0.3);
+            --danger: #dc2626;
+            --danger-light: #ef4444;
+            --danger-glow: rgba(220, 38, 38, 0.25);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #2d3a4a;
+            --border-light: #3b4a5e;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.4);
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ============================================================
+           Reset & Base
+           ============================================================ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--primary);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Background pattern trang trí */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(13, 148, 136, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(220, 38, 38, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(30, 41, 59, 0.5) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ============================================================
+           Navbar - Thanh điều hướng trên cùng
+           ============================================================ */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+        }
+
+        .navbar-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .navbar-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), var(--danger));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 2px 12px var(--accent-glow);
+        }
+
+        .navbar-title {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .navbar-title-main {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .navbar-title-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .navbar-status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: var(--transition);
+        }
+
+        .status-badge.online .status-dot {
+            background: var(--success);
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        .status-badge.error .status-dot {
+            background: var(--danger);
+            box-shadow: 0 0 8px var(--danger-glow);
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ============================================================
+           Hero Section - Tiêu đề chính
+           ============================================================ */
+        .hero {
+            text-align: center;
+            padding: 48px 24px 32px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: clamp(24px, 4vw, 36px);
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent-light) 50%, var(--text) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 4s ease-in-out infinite;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .hero .subtitle {
+            font-size: clamp(14px, 2vw, 16px);
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .hero .tech-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-light);
+            background: rgba(13, 148, 136, 0.1);
+            border: 1px solid rgba(13, 148, 136, 0.25);
+            margin-top: 12px;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 200% center; }
+        }
+
+        /* ============================================================
+           Main Layout - Bố cục chính 2 cột
+           ============================================================ */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 48px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ============================================================
+           Card - Thẻ chung
+           ============================================================ */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--border-light);
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .card-header-icon.teal {
+            background: rgba(13, 148, 136, 0.15);
+        }
+
+        .card-header-icon.red {
+            background: rgba(220, 38, 38, 0.15);
+        }
+
+        .card-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        /* ============================================================
+           Upload Zone - Vùng tải ảnh lên
+           ============================================================ */
+        .upload-zone {
+            border: 2px dashed var(--border-light);
+            border-radius: var(--radius);
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            background: rgba(13, 148, 136, 0.02);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(13, 148, 136, 0.06);
+            box-shadow: inset 0 0 30px rgba(13, 148, 136, 0.05);
+        }
+
+        .upload-zone.dragover {
+            transform: scale(1.01);
+        }
+
+        .upload-zone.has-file {
+            border-color: var(--accent);
+            border-style: solid;
+            padding: 16px;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.8;
+            transition: var(--transition);
+        }
+
+        .upload-zone:hover .upload-icon {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+
+        .upload-text h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .upload-text p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .upload-text .formats {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .upload-text .format-tag {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--primary-lighter);
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .upload-preview {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .upload-zone.has-file .upload-placeholder { display: none; }
+        .upload-zone.has-file .upload-preview { display: flex; }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 260px;
+            border-radius: var(--radius-sm);
+            object-fit: contain;
+            box-shadow: var(--shadow);
+        }
+
+        .preview-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .preview-info .file-name {
+            font-weight: 600;
+            color: var(--text);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btn-clear {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-clear:hover {
+            border-color: var(--danger);
+            color: var(--danger-light);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* ============================================================
+           Controls - Thanh điều khiển
+           ============================================================ */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .slider-group {
+            background: var(--primary-light);
+            padding: 16px 20px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .slider-label span {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .slider-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent-light) !important;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--primary-lighter);
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 2px 8px var(--accent-glow);
+            transition: var(--transition);
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            background: var(--accent-light);
+            transform: scale(1.15);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        /* Nút Phát hiện */
+        .btn-detect {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: var(--radius);
+            background: linear-gradient(135deg, var(--accent), #0f766e);
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-detect:hover:not(:disabled) {
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            box-shadow: 0 4px 20px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-detect:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-detect:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-detect.loading {
+            pointer-events: none;
+        }
+
+        /* Spinner loading */
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-top: 2.5px solid white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .btn-detect.loading .spinner {
+            display: block;
+        }
+
+        .btn-detect.loading .btn-text {
+            display: none;
+        }
+
+        .btn-detect.loading .btn-loading-text {
+            display: inline;
+        }
+
+        .btn-loading-text {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ============================================================
+           Results Panel - Bảng kết quả
+           ============================================================ */
+        .results-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .results-placeholder {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 24px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .results-placeholder .placeholder-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        .results-placeholder h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .results-placeholder p {
+            font-size: 13px;
+        }
+
+        /* Kết quả ảnh */
+        .result-image-container {
+            display: none;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .result-image-container img {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            object-fit: contain;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: none;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            gap: 16px;
+        }
+
+        .stats-bar.visible {
+            display: flex;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: var(--primary-light);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .stat-value.count { color: var(--danger-light); }
+        .stat-value.time { color: var(--accent-light); }
+        .stat-value.conf { color: var(--warning); }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* Bảng detections */
+        .detections-table-container {
+            display: none;
+            padding: 0 24px 24px;
+        }
+
+        .detections-table-container h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+
+        .detections-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+        }
+
+        .detections-table thead th {
+            background: var(--primary-light);
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .detections-table thead th:first-child {
+            border-radius: var(--radius-sm) 0 0 0;
+        }
+
+        .detections-table thead th:last-child {
+            border-radius: 0 var(--radius-sm) 0 0;
+        }
+
+        .detections-table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+
+        .detections-table tbody tr {
+            transition: var(--transition);
+        }
+
+        .detections-table tbody tr:hover {
+            background: var(--surface-hover);
+        }
+
+        .detections-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .class-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            background: var(--danger-glow);
+            color: var(--danger-light);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        .class-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+
+        /* Thanh confidence */
+        .confidence-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .confidence-bar-bg {
+            flex: 1;
+            height: 6px;
+            background: var(--primary-lighter);
+            border-radius: 3px;
+            overflow: hidden;
+            min-width: 60px;
+        }
+
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+            background: linear-gradient(90deg, var(--warning), var(--danger-light));
+        }
+
+        .confidence-value {
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            font-size: 12px;
+            min-width: 42px;
+            text-align: right;
+        }
+
+        .bbox-text {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* No detections */
+        .no-detections {
+            display: none;
+            text-align: center;
+            padding: 40px 24px;
+            color: var(--text-muted);
+        }
+
+        .no-detections .check-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .no-detections h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--success);
+            margin-bottom: 6px;
+        }
+
+        /* ============================================================
+           Toast Notifications - Thông báo
+           ============================================================ */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toast-in 0.4s ease;
+            backdrop-filter: blur(10px);
+            max-width: 380px;
+        }
+
+        .toast.error {
+            background: rgba(220, 38, 38, 0.15);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            color: #fca5a5;
+        }
+
+        .toast.success {
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #86efac;
+        }
+
+        .toast.info {
+            background: rgba(13, 148, 136, 0.15);
+            border: 1px solid rgba(13, 148, 136, 0.3);
+            color: #5eead4;
+        }
+
+        .toast-out {
+            animation: toast-out 0.3s ease forwards;
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(40px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(40px); }
+        }
+
+        /* ============================================================
+           Footer - Chân trang
+           ============================================================ */
+        .footer {
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+        }
+
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+
+        .footer-section h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .footer-section p, .footer-section li {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section ul li::before {
+            content: '›';
+            color: var(--accent);
+            margin-right: 8px;
+            font-weight: 700;
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ============================================================
+           Animations chung
+           ============================================================ */
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
+           Responsive - Giao diện đáp ứng
+           ============================================================ */
+        @media (max-width: 768px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar-inner {
+                height: 56px;
+            }
+
+            .navbar-title-main {
+                font-size: 14px;
+            }
+
+            .hero {
+                padding: 32px 16px 20px;
+            }
+
+            .hero h1 {
+                font-size: 22px;
+            }
+
+            .stats-bar.visible {
+                flex-wrap: wrap;
+            }
+
+            .stat-item {
+                min-width: calc(50% - 8px);
+            }
+
+            .card-body {
+                padding: 16px;
+            }
+
+            .upload-zone {
+                padding: 28px 16px;
+            }
+
+            .footer-inner {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .navbar-status {
+                display: none;
+            }
+
+            .detections-table .bbox-col {
+                display: none;
+            }
+        }
+
+        /* ============================================================
+           Scrollbar tuỳ chỉnh
+           ============================================================ */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-lighter);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         Navbar
+         ============================================================ -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <div class="navbar-brand">
+                <div class="navbar-logo">🗺️</div>
+                <div class="navbar-title">
+                    <span class="navbar-title-main">Nine Dash Line Detection</span>
+                    <span class="navbar-title-sub">Phát hiện Đường Lưỡi Bò</span>
+                </div>
+            </div>
+            <div class="navbar-status">
+                <div class="status-badge" id="api-status">
+                    <div class="status-dot"></div>
+                    <span id="api-status-text">Đang kết nối...</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ============================================================
+         Hero Section
+         ============================================================ -->
+    <section class="hero">
+        <h1>Hệ thống Phát hiện Đường Lưỡi Bò</h1>
+        <p class="subtitle">Phát hiện tự động đường chín đoạn phi pháp trên bản đồ bằng AI</p>
+        <div class="tech-badge">
+            <span>⚡</span>
+            <span>Faster R-CNN + Knowledge Distillation</span>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         Main Content
+         ============================================================ -->
+    <main class="main">
+        <!-- ======= Cột trái: Upload + Controls ======= -->
+        <div class="upload-column">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-header-icon teal">📤</div>
+                    <h2>Tải ảnh lên · Upload</h2>
+                </div>
+                <div class="card-body">
+                    <!-- Vùng kéo thả ảnh -->
+                    <div class="upload-zone" id="upload-zone">
+                        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp">
+
+                        <div class="upload-placeholder">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-text">
+                                <h3>Kéo & thả ảnh bản đồ vào đây</h3>
+                                <p>hoặc nhấn để chọn tệp · Drag & drop or click to browse</p>
+                                <div class="formats">
+                                    <span class="format-tag">jpeg</span>
+                                    <span class="format-tag">png</span>
+                                    <span class="format-tag">webp</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="upload-preview">
+                            <img class="preview-img" id="preview-img" src="" alt="Preview">
+                            <div class="preview-info">
+                                <span class="file-name" id="file-name"></span>
+                                <span id="file-size"></span>
+                                <button class="btn-clear" id="btn-clear" onclick="event.stopPropagation(); clearUpload();">✕ Xoá</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thanh điều khiển -->
+                    <div class="controls">
+                        <div class="slider-group">
+                            <div class="slider-label">
+                                <span>🎯 Ngưỡng tin cậy · Confidence Threshold</span>
+                                <span class="slider-value" id="threshold-value">0.50</span>
+                            </div>
+                            <input type="range" class="slider" id="threshold-slider"
+                                   min="0" max="1" step="0.05" value="0.5">
+                        </div>
+
+                        <button class="btn-detect" id="btn-detect" disabled onclick="runDetection()">
+                            <div class="spinner"></div>
+                            <span class="btn-text">🔍 Phát hiện · Detect</span>
+                            <span class="btn-loading-text">Đang phân tích...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======= Cột phải: Results ======= -->
+        <div class="results-column">
+            <div class="card results-panel" id="results-panel">
+                <div class="card-header">
+                    <div class="card-header-icon red">📊</div>
+                    <h2>Kết quả · Results</h2>
+                </div>
+
+                <!-- Placeholder khi chưa có kết quả -->
+                <div class="results-placeholder" id="results-placeholder">
+                    <div class="placeholder-icon">🔎</div>
+                    <h3>Chưa có kết quả</h3>
+                    <p>Tải ảnh bản đồ lên và nhấn "Phát hiện" để bắt đầu</p>
+                </div>
+
+                <!-- Stats bar -->
+                <div class="stats-bar" id="stats-bar">
+                    <div class="stat-item">
+                        <div class="stat-value count" id="stat-count">0</div>
+                        <div class="stat-label">Phát hiện</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value time" id="stat-time">0ms</div>
+                        <div class="stat-label">Thời gian</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value conf" id="stat-conf">-</div>
+                        <div class="stat-label">Conf. TB</div>
+                    </div>
+                </div>
+
+                <!-- Ảnh kết quả -->
+                <div class="result-image-container" id="result-image-container">
+                    <img id="result-image" src="" alt="Detection Result">
+                </div>
+
+                <!-- Không có detection -->
+                <div class="no-detections" id="no-detections">
+                    <div class="check-icon">✅</div>
+                    <h3>Không phát hiện đường lưỡi bò</h3>
+                    <p>Ảnh này không chứa đường chín đoạn phi pháp</p>
+                </div>
+
+                <!-- Bảng detections -->
+                <div class="detections-table-container" id="detections-table-container">
+                    <h3>Chi tiết phát hiện · Detection Details</h3>
+                    <table class="detections-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Lớp · Class</th>
+                                <th>Độ tin cậy · Confidence</th>
+                                <th class="bbox-col">Bounding Box</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detections-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================================
+         Footer
+         ============================================================ -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-section">
+                <h4>🧠 Mô hình · Model</h4>
+                <ul id="model-info-list">
+                    <li>Faster R-CNN (ResNet-50 FPN)</li>
+                    <li>Knowledge Distillation</li>
+                    <li>Đang tải thông tin...</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>📡 API Endpoints</h4>
+                <ul>
+                    <li>POST /api/detect</li>
+                    <li>GET /api/health</li>
+                    <li>GET /api/model-info</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>ℹ️ Thông tin · About</h4>
+                <p>Hệ thống phát hiện đường chín đoạn (đường lưỡi bò) phi pháp trên ảnh bản đồ.
+                   Sử dụng deep learning với kiến trúc Faster R-CNN kết hợp kỹ thuật Knowledge Distillation.</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>Nine Dash Line Detection System &copy; 2024 &middot; Powered by PyTorch & FastAPI</span>
+        </div>
+    </footer>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- ============================================================
+         JavaScript - Logic xử lý
+         ============================================================ -->
+    <script>
+        /* ===========================================================
+           Biến toàn cục
+           =========================================================== */
+        let selectedFile = null;
+
+        /* DOM elements */
+        const uploadZone     = document.getElementById('upload-zone');
+        const fileInput      = document.getElementById('file-input');
+        const previewImg     = document.getElementById('preview-img');
+        const fileName       = document.getElementById('file-name');
+        const fileSize       = document.getElementById('file-size');
+        const thresholdSlider= document.getElementById('threshold-slider');
+        const thresholdValue = document.getElementById('threshold-value');
+        const btnDetect      = document.getElementById('btn-detect');
+        const apiStatus      = document.getElementById('api-status');
+        const apiStatusText  = document.getElementById('api-status-text');
+
+        /* ===========================================================
+           Upload Zone - Xử lý kéo thả và chọn file
+           =========================================================== */
+
+        // Click để mở dialog chọn file
+        uploadZone.addEventListener('click', () => {
+            if (!selectedFile) fileInput.click();
+        });
+
+        // Xử lý file được chọn
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        // Drag & Drop events
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        /**
+         * Xử lý file ảnh đã chọn - hiển thị preview
+         * @param {File} file - File ảnh
+         */
+        function handleFile(file) {
+            // Kiểm tra định dạng
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showToast('Định dạng không hỗ trợ. Vui lòng chọn JPEG, PNG hoặc WebP.', 'error');
+                return;
+            }
+
+            // Kiểm tra kích thước (tối đa 20MB)
+            if (file.size > 20 * 1024 * 1024) {
+                showToast('File quá lớn. Kích thước tối đa: 20MB.', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            uploadZone.classList.add('has-file');
+            btnDetect.disabled = false;
+
+            // Hiển thị thông tin file
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+
+            // Hiển thị preview ảnh
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * Xoá file đã chọn
+         */
+        function clearUpload() {
+            selectedFile = null;
+            uploadZone.classList.remove('has-file');
+            fileInput.value = '';
+            previewImg.src = '';
+            btnDetect.disabled = true;
+        }
+
+        /**
+         * Format kích thước file (bytes -> KB/MB)
+         * @param {number} bytes
+         * @returns {string}
+         */
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        /* ===========================================================
+           Slider - Thanh ngưỡng tin cậy
+           =========================================================== */
+        thresholdSlider.addEventListener('input', (e) => {
+            thresholdValue.textContent = parseFloat(e.target.value).toFixed(2);
+        });
+
+        /* ===========================================================
+           Detection - Gửi ảnh lên API để phát hiện
+           =========================================================== */
+
+        /**
+         * Gọi API /api/detect để phát hiện đường lưỡi bò
+         */
+        async function runDetection() {
+            if (!selectedFile) {
+                showToast('Vui lòng chọn ảnh trước.', 'error');
+                return;
+            }
+
+            // Bật trạng thái loading
+            btnDetect.classList.add('loading');
+            btnDetect.disabled = true;
+
+            const threshold = thresholdSlider.value;
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch(`/api/detect?threshold=${threshold}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => null);
+                    throw new Error(errData?.detail || `Lỗi server: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.detail || 'Phát hiện thất bại.');
+                }
+
+                // Hiển thị kết quả
+                displayResults(data);
+                showToast(`Phát hiện ${data.num_detections} đối tượng trong ${data.inference_time_ms}ms`, 'success');
+
+            } catch (err) {
+                console.error('Detection error:', err);
+                showToast(`Lỗi: ${err.message}`, 'error');
+            } finally {
+                // Tắt trạng thái loading
+                btnDetect.classList.remove('loading');
+                btnDetect.disabled = false;
+            }
+        }
+
+        /**
+         * Hiển thị kết quả detection lên giao diện
+         * @param {Object} data - Dữ liệu trả về từ API
+         */
+        function displayResults(data) {
+            const placeholder      = document.getElementById('results-placeholder');
+            const statsBar         = document.getElementById('stats-bar');
+            const resultImgCont    = document.getElementById('result-image-container');
+            const resultImg        = document.getElementById('result-image');
+            const noDetections     = document.getElementById('no-detections');
+            const tableContainer   = document.getElementById('detections-table-container');
+            const tbody            = document.getElementById('detections-tbody');
+
+            // Ẩn placeholder
+            placeholder.style.display = 'none';
+
+            // Hiển thị stats bar
+            statsBar.classList.add('visible');
+            document.getElementById('stat-count').textContent = data.num_detections;
+            document.getElementById('stat-time').textContent = Math.round(data.inference_time_ms) + 'ms';
+
+            // Tính confidence trung bình
+            if (data.detections && data.detections.length > 0) {
+                const avgConf = data.detections.reduce((s, d) => s + d.confidence, 0) / data.detections.length;
+                document.getElementById('stat-conf').textContent = (avgConf * 100).toFixed(1) + '%';
+            } else {
+                document.getElementById('stat-conf').textContent = '-';
+            }
+
+            // Hiển thị ảnh kết quả
+            if (data.result_image) {
+                resultImg.src = data.result_image;
+                resultImgCont.style.display = 'block';
+                resultImgCont.classList.add('fade-in-up');
+            }
+
+            // Kiểm tra có detection hay không
+            if (data.num_detections === 0) {
+                noDetections.style.display = 'block';
+                tableContainer.style.display = 'none';
+            } else {
+                noDetections.style.display = 'none';
+                tableContainer.style.display = 'block';
+                tableContainer.classList.add('fade-in-up');
+
+                // Render bảng detections
+                tbody.innerHTML = '';
+                data.detections.forEach((det, i) => {
+                    const conf = (det.confidence * 100).toFixed(1);
+                    const bbox = det.bbox.map(v => Math.round(v)).join(', ');
+                    const barWidth = det.confidence * 100;
+
+                    // Xác định màu thanh confidence
+                    let barColor;
+                    if (det.confidence >= 0.8) barColor = '#ef4444';
+                    else if (det.confidence >= 0.6) barColor = '#f59e0b';
+                    else barColor = '#22c55e';
+
+                    const row = document.createElement('tr');
+                    row.classList.add('fade-in');
+                    row.style.animationDelay = `${i * 0.08}s`;
+                    row.innerHTML = `
+                        <td style="font-weight:700; color:var(--text-muted)">${i + 1}</td>
+                        <td><span class="class-badge">${escapeHtml(det.class_name)}</span></td>
+                        <td>
+                            <div class="confidence-cell">
+                                <div class="confidence-bar-bg">
+                                    <div class="confidence-bar-fill" style="width:${barWidth}%; background:${barColor}"></div>
+                                </div>
+                                <span class="confidence-value">${conf}%</span>
+                            </div>
+                        </td>
+                        <td class="bbox-col"><span class="bbox-text">[${bbox}]</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            // Cuộn đến kết quả (trên mobile)
+            if (window.innerWidth < 768) {
+                document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        /* ===========================================================
+           Health Check - Kiểm tra trạng thái API
+           =========================================================== */
+
+        /**
+         * Kiểm tra kết nối API
+         */
+        async function checkHealth() {
+            try {
+                const res = await fetch('/api/health');
+                const data = await res.json();
+
+                if (data.status === 'healthy' || res.ok) {
+                    apiStatus.className = 'status-badge online';
+                    apiStatusText.textContent = `Online · ${data.device || 'ready'}`;
+                } else {
+                    throw new Error('Unhealthy');
+                }
+            } catch {
+                apiStatus.className = 'status-badge error';
+                apiStatusText.textContent = 'Không kết nối';
+            }
+        }
+
+        /**
+         * Lấy thông tin model và hiển thị ở footer
+         */
+        async function fetchModelInfo() {
+            try {
+                const res = await fetch('/api/model-info');
+                if (!res.ok) return;
+                const data = await res.json();
+                const list = document.getElementById('model-info-list');
+
+                // Xây dựng danh sách thông tin model
+                const items = [];
+                if (data.architecture)   items.push(`Kiến trúc: ${data.architecture}`);
+                if (data.backbone)       items.push(`Backbone: ${data.backbone}`);
+                if (data.num_classes)    items.push(`Số lớp: ${data.num_classes}`);
+                if (data.device)         items.push(`Thiết bị: ${data.device}`);
+                if (data.distillation)   items.push('Knowledge Distillation: ✓');
+
+                if (items.length > 0) {
+                    list.innerHTML = items.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+                }
+            } catch {
+                // Giữ nguyên thông tin mặc định
+            }
+        }
+
+        /* ===========================================================
+           Toast - Hệ thống thông báo
+           =========================================================== */
+
+        /**
+         * Hiển thị thông báo toast
+         * @param {string} message - Nội dung thông báo
+         * @param {string} type - Loại: 'error' | 'success' | 'info'
+         */
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const icons = { error: '⚠️', success: '✅', info: 'ℹ️' };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${icons[type] || ''}</span><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+
+            // Tự động ẩn sau 4 giây
+            setTimeout(() => {
+                toast.classList.add('toast-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        /* ===========================================================
+           Utilities
+           =========================================================== */
+
+        /**
+         * Escape HTML để tránh XSS
+         * @param {string} text
+         * @returns {string}
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        /* ===========================================================
+           Khởi tạo - Init
+           =========================================================== */
+        document.addEventListener('DOMContentLoaded', () => {
+            checkHealth();
+            fetchModelInfo();
+
+            // Kiểm tra health mỗi 30 giây
+            setInterval(checkHealth, 30000);
+        });
+    </script>
+</body>
+</html>
